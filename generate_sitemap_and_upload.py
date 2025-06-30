@@ -5,7 +5,7 @@ import xml.etree.ElementTree as ET
 import os
 
 SOURCE_URL = "https://ccn-openpaye-smartdatapay.replit.app"
-LOCAL_SITEMAP = "sitemap.xml"  # ✅ Le sitemap est généré à la racine
+LOCAL_SITEMAP = "sitemap.xml"  # Généré à la racine du dépôt
 
 def extract_idccs_with_playwright():
     print(f"🌀 Rendu JS avec Playwright pour {SOURCE_URL}")
@@ -16,7 +16,6 @@ def extract_idccs_with_playwright():
         page = browser.new_page()
         page.goto(SOURCE_URL, wait_until="networkidle")
 
-        # 🕒 On attend explicitement que les liens de convention apparaissent
         try:
             page.wait_for_selector("a[href^='/convention/']", timeout=10000)
         except TimeoutError:
@@ -24,7 +23,6 @@ def extract_idccs_with_playwright():
             browser.close()
             return []
 
-        # 🔁 Scroll infini (au cas où)
         previous_height = 0
         max_scrolls = 30
         scroll_count = 0
@@ -37,7 +35,6 @@ def extract_idccs_with_playwright():
             previous_height = current_height
             scroll_count += 1
 
-        # ✅ Extraction des liens
         links = page.query_selector_all("a[href^='/convention/']")
         for link in links:
             href = link.get_attribute("href")
@@ -74,7 +71,6 @@ def generate_sitemap(idccs):
     tree = ET.ElementTree(urlset)
     tree.write(LOCAL_SITEMAP, encoding="utf-8", xml_declaration=True)
     print(f"📦 sitemap.xml généré avec {len(idccs)} entrées.")
-
 
 if __name__ == "__main__":
     idccs = extract_idccs_with_playwright()
