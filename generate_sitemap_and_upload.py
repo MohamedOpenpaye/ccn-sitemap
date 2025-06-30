@@ -4,7 +4,6 @@ from datetime import datetime
 import xml.etree.ElementTree as ET
 import paramiko
 import os
-import re
 
 # === CONFIGURATION ===
 SOURCE_URL = "https://ccn-openpaye-roseyemeli.replit.app"
@@ -16,22 +15,23 @@ DOMAIN = "ccn-openpaye-roseyemeli.replit.app"
 SFTP_HOST = "173.199.70.178"
 SFTP_PORT = 22
 SFTP_USER = "root"
-SFTP_PASS = os.environ.get("SFTP_PASS")  # <- sécurisé via GitHub Secrets
+SFTP_PASS = os.environ.get("SFTP_PASS")  # GitHub Secret
 
 def extract_idccs():
-    print(f"🟡 Récupération des IDCC depuis {SOURCE_URL}")
+    print(f"🔎 Chargement de {SOURCE_URL}")
     r = requests.get(SOURCE_URL)
     soup = BeautifulSoup(r.text, 'html.parser')
     idccs = set()
 
-    for tag in soup.find_all(text=True):
-        if "IDCC" in tag.upper():
-            matches = re.findall(r'IDCC\s*(\d{2,5})', tag.upper())
-            for match in matches:
-                idccs.add(match)
+    for a in soup.find_all("a", href=True):
+        href = a["href"]
+        if href.startswith("/convention/"):
+            idcc = href.split("/convention/")[1].split("/")[0]
+            if idcc.isdigit():
+                idccs.add(idcc)
 
     idccs_sorted = sorted(idccs)
-    print(f"🟢 IDCCs trouvés : {idccs_sorted}")
+    print(f"🟢 {len(idccs_sorted)} IDCCs trouvés : {idccs_sorted[:5]}...")  # debug preview
     return idccs_sorted
 
 def generate_sitemap(idccs):
@@ -55,15 +55,14 @@ def generate_sitemap(idccs):
 
     tree = ET.ElementTree(urlset)
     tree.write(LOCAL_SITEMAP, encoding="utf-8", xml_declaration=True)
-    print(f"✅ Sitemap généré avec {len(idccs)} IDCC → {LOCAL_SITEMAP}")
+    print(f"✅ Sitemap généré avec {len(idccs)} entrées")
 
 def upload_sitemap():
-    print(f"📡 Connexion au serveur SFTP {SFTP_HOST}...")
+    print(f"📤 Connexion SFTP à {SFTP_HOST}...")
     transport = paramiko.Transport((SFTP_HOST, SFTP_PORT))
     transport.connect(username=SFTP_USER, password=SFTP_PASS)
     sftp = paramiko.SFTPClient.from_transport(transport)
 
-    # Créer le dossier distant s’il n’existe pas
     try:
         sftp.stat("/var/www/html/ccn-roseyemeli")
     except FileNotFoundError:
@@ -72,7 +71,7 @@ def upload_sitemap():
     sftp.put(LOCAL_SITEMAP, REMOTE_PATH)
     sftp.close()
     transport.close()
-    print(f"🟢 sitemap.xml uploadé avec succès sur {REMOTE_PATH}")
+    print(f"🟢 sitemap.xml uploadé sur {REMOTE_PATH}")
 
 if __name__ == "__main__":
     idccs = extract_idccs()
