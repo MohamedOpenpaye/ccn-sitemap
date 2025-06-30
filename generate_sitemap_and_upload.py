@@ -6,10 +6,10 @@ import os
 import subprocess
 
 SOURCE_URL = "https://ccn-openpaye-smartdatapay.replit.app"
-LOCAL_SITEMAP = "public/sitemap.xml"
+LOCAL_SITEMAP = "sitemap.xml"
 
 def extract_idccs_and_titles():
-    print(f"🌀 Extraction Playwright depuis {SOURCE_URL}")
+    print(f"🌀 Extraction depuis {SOURCE_URL}")
     conventions = []
 
     with sync_playwright() as p:
@@ -20,7 +20,7 @@ def extract_idccs_and_titles():
         try:
             page.wait_for_selector("a[href^='/convention/']", timeout=10000)
         except TimeoutError:
-            print("⚠️ Aucun lien /convention/ trouvé après 10 secondes.")
+            print("⚠️ Aucun lien /convention/ trouvé après 10 sec.")
             browser.close()
             return []
 
@@ -43,7 +43,8 @@ def extract_idccs_and_titles():
                 if idcc.isdigit():
                     conventions.append({
                         "idcc": idcc,
-                        "title": title
+                        "title": title,
+                        "url": f"{SOURCE_URL}/convention/{idcc}"
                     })
 
         browser.close()
@@ -53,13 +54,12 @@ def extract_idccs_and_titles():
 
 
 def generate_sitemap(conventions):
-    print("📄 Génération du sitemap.xml...")
-    os.makedirs("public", exist_ok=True)
+    print("📄 Génération du sitemap.xml avec <data:title>...")
     today = datetime.utcnow().strftime("%Y-%m-%d")
 
     urlset = ET.Element("urlset", xmlns="http://www.sitemaps.org/schemas/sitemap/0.9")
 
-    # Page d’accueil
+    # Page d'accueil
     url = ET.SubElement(urlset, "url")
     ET.SubElement(url, "loc").text = f"{SOURCE_URL}/"
     ET.SubElement(url, "lastmod").text = today
@@ -67,14 +67,13 @@ def generate_sitemap(conventions):
     ET.SubElement(url, "priority").text = "1.0"
     ET.SubElement(url, "data:title").text = "Accueil"
 
-    # Conventions
     for conv in conventions:
         url = ET.SubElement(urlset, "url")
-        ET.SubElement(url, "loc").text = f"{SOURCE_URL}/convention/{conv['idcc']}"
+        ET.SubElement(url, "loc").text = conv["url"]
         ET.SubElement(url, "lastmod").text = today
         ET.SubElement(url, "changefreq").text = "weekly"
         ET.SubElement(url, "priority").text = "0.8"
-        ET.SubElement(url, "data:title").text = conv['title']
+        ET.SubElement(url, "data:title").text = conv["title"]
 
     tree = ET.ElementTree(urlset)
     tree.write(LOCAL_SITEMAP, encoding="utf-8", xml_declaration=True)
@@ -82,13 +81,13 @@ def generate_sitemap(conventions):
 
 
 def commit_sitemap_to_git():
-    print("📁 Commit Git...")
+    print("📁 Commit GitHub Pages...")
     subprocess.run(["git", "config", "--global", "user.name", "github-actions[bot]"])
     subprocess.run(["git", "config", "--global", "user.email", "github-actions[bot]@users.noreply.github.com"])
-    subprocess.run(["git", "add", "public/sitemap.xml"])
-    subprocess.run(["git", "commit", "-m", "🔄 MAJ sitemap avec data:title pour CustomGPT"])
+    subprocess.run(["git", "add", LOCAL_SITEMAP])
+    subprocess.run(["git", "commit", "-m", "🔄 MAJ sitemap.xml avec <data:title> pour CustomGPT"])
     subprocess.run(["git", "push"])
-    print("✅ sitemap.xml committé.")
+    print("✅ sitemap.xml poussé avec balises <data:title>.")
 
 
 if __name__ == "__main__":
