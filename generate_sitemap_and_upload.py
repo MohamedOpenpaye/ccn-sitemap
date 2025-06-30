@@ -15,7 +15,7 @@ DOMAIN = "ccn-openpaye-roseyemeli.replit.app"
 SFTP_HOST = "173.199.70.178"
 SFTP_PORT = 22
 SFTP_USER = "root"
-SFTP_PASS = "*Kv2.4R)27EcgXT*"
+SFTP_PASS = "os.environ.get("SFTP_PASS")"
 
 def extract_idccs():
     response = requests.get(SOURCE_URL)
