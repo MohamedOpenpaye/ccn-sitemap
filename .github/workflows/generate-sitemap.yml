@@ -3,7 +3,7 @@ name: Génération automatique du sitemap
 on:
   schedule:
     - cron: '0 3 * * 1'   # Chaque lundi à 3h (UTC)
-  workflow_dispatch:     # Permet aussi de lancer manuellement
+  workflow_dispatch:       # Permet aussi un déclenchement manuel
 
 jobs:
   build:
@@ -20,10 +20,16 @@ jobs:
 
       - name: 📦 Installer les dépendances
         run: |
-          pip install playwright paramiko
+          pip install playwright
           playwright install chromium
 
-      - name: 🚀 Lancer le script de génération et d'upload
+      - name: 🚀 Générer le sitemap
         run: python generate_sitemap_and_upload.py
-        env:
-          SFTP_PASS: ${{ secrets.SFTP_PASS }}
+
+      - name: 📝 Commit sitemap.xml dans le dépôt
+        run: |
+          git config user.name github-actions[bot]
+          git config user.email github-actions[bot]@users.noreply.github.com
+          git add sitemap.xml
+          git commit -m "🔄 Update sitemap.xml [auto]" || echo "Rien à commiter"
+          git push
