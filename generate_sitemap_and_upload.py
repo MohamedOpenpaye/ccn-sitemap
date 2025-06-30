@@ -1,45 +1,46 @@
-import requests
-from bs4 import BeautifulSoup
+import asyncio
+from playwright.sync_api import sync_playwright
 from datetime import datetime
 import xml.etree.ElementTree as ET
 import paramiko
 import os
 
-# === CONFIGURATION ===
 SOURCE_URL = "https://ccn-openpaye-roseyemeli.replit.app"
 LOCAL_SITEMAP = "sitemap.xml"
 REMOTE_PATH = "/var/www/html/ccn-roseyemeli/sitemap.xml"
-DOMAIN = "ccn-openpaye-roseyemeli.replit.app"
-
-# === SFTP CONFIG
 SFTP_HOST = "173.199.70.178"
 SFTP_PORT = 22
 SFTP_USER = "root"
-SFTP_PASS = os.environ.get("SFTP_PASS")  # GitHub Secret
+SFTP_PASS = os.environ.get("SFTP_PASS")
 
-def extract_idccs():
-    print(f"🔎 Chargement de {SOURCE_URL}")
-    r = requests.get(SOURCE_URL)
-    soup = BeautifulSoup(r.text, 'html.parser')
+def extract_idccs_with_playwright():
+    print(f"🌀 Rendu JS avec Playwright pour {SOURCE_URL}")
     idccs = set()
 
-    for a in soup.find_all("a", href=True):
-        href = a["href"]
-        if href.startswith("/convention/"):
-            idcc = href.split("/convention/")[1].split("/")[0]
-            if idcc.isdigit():
-                idccs.add(idcc)
+    with sync_playwright() as p:
+        browser = p.chromium.launch(headless=True)
+        page = browser.new_page()
+        page.goto(SOURCE_URL, wait_until="networkidle")
+
+        links = page.query_selector_all("a[href^='/convention/']")
+        for link in links:
+            href = link.get_attribute("href")
+            if href:
+                idcc = href.split("/convention/")[1].split("/")[0]
+                if idcc.isdigit():
+                    idccs.add(idcc)
+
+        browser.close()
 
     idccs_sorted = sorted(idccs)
-    print(f"🟢 {len(idccs_sorted)} IDCCs trouvés : {idccs_sorted[:5]}...")  # debug preview
+    print(f"✅ {len(idccs_sorted)} IDCCs trouvés : {idccs_sorted[:5]}...")
     return idccs_sorted
 
 def generate_sitemap(idccs):
-    print("🛠️ Génération du sitemap.xml...")
+    print("📄 Génération du sitemap.xml...")
     urlset = ET.Element("urlset", xmlns="http://www.sitemaps.org/schemas/sitemap/0.9")
     today = datetime.utcnow().strftime("%Y-%m-%d")
 
-    # Page d'accueil
     url = ET.SubElement(urlset, "url")
     ET.SubElement(url, "loc").text = SOURCE_URL + "/"
     ET.SubElement(url, "lastmod").text = today
@@ -55,7 +56,7 @@ def generate_sitemap(idccs):
 
     tree = ET.ElementTree(urlset)
     tree.write(LOCAL_SITEMAP, encoding="utf-8", xml_declaration=True)
-    print(f"✅ Sitemap généré avec {len(idccs)} entrées")
+    print(f"📦 sitemap.xml généré avec {len(idccs)} entrées.")
 
 def upload_sitemap():
     print(f"📤 Connexion SFTP à {SFTP_HOST}...")
@@ -71,9 +72,9 @@ def upload_sitemap():
     sftp.put(LOCAL_SITEMAP, REMOTE_PATH)
     sftp.close()
     transport.close()
-    print(f"🟢 sitemap.xml uploadé sur {REMOTE_PATH}")
+    print("✅ sitemap.xml uploadé avec succès.")
 
 if __name__ == "__main__":
-    idccs = extract_idccs()
+    idccs = extract_idccs_with_playwright()
     generate_sitemap(idccs)
     upload_sitemap()
