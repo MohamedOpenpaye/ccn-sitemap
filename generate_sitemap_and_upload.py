@@ -4,7 +4,7 @@ from datetime import datetime
 import xml.etree.ElementTree as ET
 import os
 
-SOURCE_URL = "https://ccn-openpaye-roseyemeli.replit.app"
+SOURCE_URL = "https://ccn-openpaye-smartdatapay.replit.app"
 LOCAL_SITEMAP = "sitemap.xml"  # ✅ Le sitemap est généré à la racine
 
 def extract_idccs_with_playwright():
