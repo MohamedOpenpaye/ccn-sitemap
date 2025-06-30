@@ -5,7 +5,7 @@ import xml.etree.ElementTree as ET
 import paramiko
 import os
 
-SOURCE_URL = "https://ccn-openpaye-roseyemeli.replit.app"
+SOURCE_URL = "https://ccn-openpaye-smartdatapay.replit.app"
 LOCAL_SITEMAP = "sitemap.xml"
 REMOTE_PATH = "/var/www/html/ccn-roseyemeli/sitemap.xml"
 SFTP_HOST = "173.199.70.178"
