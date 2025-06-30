@@ -23,20 +23,23 @@ def extract_idccs_with_playwright():
         page = browser.new_page()
         page.goto(SOURCE_URL, wait_until="networkidle")
 
-        # 🕒 Attente supplémentaire pour chargement JS
-        page.wait_for_timeout(5000)
+        # 🕒 Attente initiale
+        page.wait_for_timeout(2000)
 
-        # 🔁 Scroll jusqu'en bas de la page pour charger tous les liens dynamiques
+        # 🔁 Scroll infini vers le bas pour forcer le chargement de tous les liens
         previous_height = 0
-        while True:
+        max_scrolls = 50
+        scroll_count = 0
+        while scroll_count < max_scrolls:
             current_height = page.evaluate("document.body.scrollHeight")
             if current_height == previous_height:
                 break
-            previous_height = current_height
             page.evaluate("window.scrollTo(0, document.body.scrollHeight)")
             page.wait_for_timeout(1000)
+            previous_height = current_height
+            scroll_count += 1
 
-        # ✅ Extraction des liens
+        # ✅ Extraction des liens après scroll
         links = page.query_selector_all("a[href^='/convention/']")
         for link in links:
             href = link.get_attribute("href")
