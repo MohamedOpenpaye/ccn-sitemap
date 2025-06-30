@@ -13,6 +13,7 @@ SFTP_PORT = 22
 SFTP_USER = "root"
 SFTP_PASS = os.environ.get("SFTP_PASS")
 
+
 def extract_idccs_with_playwright():
     print(f"🌀 Rendu JS avec Playwright pour {SOURCE_URL}")
     idccs = set()
@@ -22,6 +23,20 @@ def extract_idccs_with_playwright():
         page = browser.new_page()
         page.goto(SOURCE_URL, wait_until="networkidle")
 
+        # 🕒 Attente supplémentaire pour chargement JS
+        page.wait_for_timeout(5000)
+
+        # 🔁 Scroll jusqu'en bas de la page pour charger tous les liens dynamiques
+        previous_height = 0
+        while True:
+            current_height = page.evaluate("document.body.scrollHeight")
+            if current_height == previous_height:
+                break
+            previous_height = current_height
+            page.evaluate("window.scrollTo(0, document.body.scrollHeight)")
+            page.wait_for_timeout(1000)
+
+        # ✅ Extraction des liens
         links = page.query_selector_all("a[href^='/convention/']")
         for link in links:
             href = link.get_attribute("href")
@@ -35,6 +50,7 @@ def extract_idccs_with_playwright():
     idccs_sorted = sorted(idccs)
     print(f"✅ {len(idccs_sorted)} IDCCs trouvés : {idccs_sorted[:5]}...")
     return idccs_sorted
+
 
 def generate_sitemap(idccs):
     print("📄 Génération du sitemap.xml...")
@@ -58,6 +74,7 @@ def generate_sitemap(idccs):
     tree.write(LOCAL_SITEMAP, encoding="utf-8", xml_declaration=True)
     print(f"📦 sitemap.xml généré avec {len(idccs)} entrées.")
 
+
 def upload_sitemap():
     print(f"📤 Connexion SFTP à {SFTP_HOST}...")
     transport = paramiko.Transport((SFTP_HOST, SFTP_PORT))
@@ -73,6 +90,7 @@ def upload_sitemap():
     sftp.close()
     transport.close()
     print("✅ sitemap.xml uploadé avec succès.")
+
 
 if __name__ == "__main__":
     idccs = extract_idccs_with_playwright()
