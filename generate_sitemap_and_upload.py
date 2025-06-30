@@ -54,18 +54,17 @@ def extract_idccs_and_titles():
 
 
 def generate_sitemap(conventions):
-    print("📄 Génération du sitemap.xml avec <data:title>...")
+    print("📄 Génération du sitemap.xml avec <title>...")
     today = datetime.utcnow().strftime("%Y-%m-%d")
 
     urlset = ET.Element("urlset", xmlns="http://www.sitemaps.org/schemas/sitemap/0.9")
 
-    # Page d'accueil
     url = ET.SubElement(urlset, "url")
     ET.SubElement(url, "loc").text = f"{SOURCE_URL}/"
     ET.SubElement(url, "lastmod").text = today
     ET.SubElement(url, "changefreq").text = "weekly"
     ET.SubElement(url, "priority").text = "1.0"
-    ET.SubElement(url, "data:title").text = "Accueil"
+    ET.SubElement(url, "title").text = "Accueil"
 
     for conv in conventions:
         url = ET.SubElement(urlset, "url")
@@ -73,7 +72,7 @@ def generate_sitemap(conventions):
         ET.SubElement(url, "lastmod").text = today
         ET.SubElement(url, "changefreq").text = "weekly"
         ET.SubElement(url, "priority").text = "0.8"
-        ET.SubElement(url, "data:title").text = conv["title"]
+        ET.SubElement(url, "title").text = conv["title"]
 
     tree = ET.ElementTree(urlset)
     tree.write(LOCAL_SITEMAP, encoding="utf-8", xml_declaration=True)
@@ -85,9 +84,9 @@ def commit_sitemap_to_git():
     subprocess.run(["git", "config", "--global", "user.name", "github-actions[bot]"])
     subprocess.run(["git", "config", "--global", "user.email", "github-actions[bot]@users.noreply.github.com"])
     subprocess.run(["git", "add", LOCAL_SITEMAP])
-    subprocess.run(["git", "commit", "-m", "🔄 MAJ sitemap.xml avec <data:title> pour CustomGPT"])
+    subprocess.run(["git", "commit", "-m", "🔄 MAJ sitemap.xml avec <title> pour CustomGPT"])
     subprocess.run(["git", "push"])
-    print("✅ sitemap.xml poussé avec balises <data:title>.")
+    print("✅ sitemap.xml poussé avec balises <title>.")
 
 
 if __name__ == "__main__":
