@@ -1,18 +1,12 @@
 import asyncio
-from playwright.sync_api import sync_playwright
+from playwright.sync_api import sync_playwright, TimeoutError
 from datetime import datetime
 import xml.etree.ElementTree as ET
-import paramiko
 import os
+import subprocess
 
 SOURCE_URL = "https://ccn-openpaye-smartdatapay.replit.app"
 LOCAL_SITEMAP = "sitemap.xml"
-REMOTE_PATH = "/var/www/html/ccn-roseyemeli/sitemap.xml"
-SFTP_HOST = "173.199.70.178"
-SFTP_PORT = 22
-SFTP_USER = "root"
-SFTP_PASS = os.environ.get("SFTP_PASS")
-
 
 def extract_idccs_with_playwright():
     print(f"🌀 Rendu JS avec Playwright pour {SOURCE_URL}")
@@ -23,23 +17,25 @@ def extract_idccs_with_playwright():
         page = browser.new_page()
         page.goto(SOURCE_URL, wait_until="networkidle")
 
-        # 🕒 Attente initiale
-        page.wait_for_timeout(2000)
+        try:
+            page.wait_for_selector("a[href^='/convention/']", timeout=10000)
+        except TimeoutError:
+            print("⚠️ Aucun lien /convention/ trouvé après 10 secondes.")
+            browser.close()
+            return []
 
-        # 🔁 Scroll infini vers le bas pour forcer le chargement de tous les liens
         previous_height = 0
-        max_scrolls = 50
+        max_scrolls = 30
         scroll_count = 0
         while scroll_count < max_scrolls:
             current_height = page.evaluate("document.body.scrollHeight")
             if current_height == previous_height:
                 break
             page.evaluate("window.scrollTo(0, document.body.scrollHeight)")
-            page.wait_for_timeout(1000)
+            page.wait_for_timeout(800)
             previous_height = current_height
             scroll_count += 1
 
-        # ✅ Extraction des liens après scroll
         links = page.query_selector_all("a[href^='/convention/']")
         for link in links:
             href = link.get_attribute("href")
@@ -51,7 +47,7 @@ def extract_idccs_with_playwright():
         browser.close()
 
     idccs_sorted = sorted(idccs)
-    print(f"✅ {len(idccs_sorted)} IDCCs trouvés : {idccs_sorted[:5]}...")
+    print(f"✅ {len(idccs_sorted)} IDCCs trouvés : {idccs_sorted[:10]}...")
     return idccs_sorted
 
 
@@ -78,24 +74,17 @@ def generate_sitemap(idccs):
     print(f"📦 sitemap.xml généré avec {len(idccs)} entrées.")
 
 
-def upload_sitemap():
-    print(f"📤 Connexion SFTP à {SFTP_HOST}...")
-    transport = paramiko.Transport((SFTP_HOST, SFTP_PORT))
-    transport.connect(username=SFTP_USER, password=SFTP_PASS)
-    sftp = paramiko.SFTPClient.from_transport(transport)
-
-    try:
-        sftp.stat("/var/www/html/ccn-roseyemeli")
-    except FileNotFoundError:
-        sftp.mkdir("/var/www/html/ccn-roseyemeli")
-
-    sftp.put(LOCAL_SITEMAP, REMOTE_PATH)
-    sftp.close()
-    transport.close()
-    print("✅ sitemap.xml uploadé avec succès.")
+def commit_sitemap_to_git():
+    print("📁 Ajout du sitemap au dépôt Git...")
+    subprocess.run(["git", "config", "--global", "user.name", "github-actions[bot]"])
+    subprocess.run(["git", "config", "--global", "user.email", "github-actions[bot]@users.noreply.github.com"])
+    subprocess.run(["git", "add", LOCAL_SITEMAP])
+    subprocess.run(["git", "commit", "-m", "🔄 MAJ automatique du sitemap.xml"])
+    subprocess.run(["git", "push"])
+    print("✅ sitemap.xml committé et poussé dans le dépôt GitHub.")
 
 
 if __name__ == "__main__":
     idccs = extract_idccs_with_playwright()
     generate_sitemap(idccs)
-    upload_sitemap()
+    commit_sitemap_to_git()
