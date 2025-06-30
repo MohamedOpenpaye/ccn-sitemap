@@ -3,13 +3,14 @@ from playwright.sync_api import sync_playwright, TimeoutError
 from datetime import datetime
 import xml.etree.ElementTree as ET
 import os
+import subprocess
 
 SOURCE_URL = "https://ccn-openpaye-smartdatapay.replit.app"
-LOCAL_SITEMAP = "sitemap.xml"  # Généré à la racine du dépôt
+LOCAL_SITEMAP = "public/sitemap.xml"
 
-def extract_idccs_with_playwright():
-    print(f"🌀 Rendu JS avec Playwright pour {SOURCE_URL}")
-    idccs = set()
+def extract_idccs_and_titles():
+    print(f"🌀 Extraction Playwright depuis {SOURCE_URL}")
+    conventions = []
 
     with sync_playwright() as p:
         browser = p.chromium.launch(headless=True)
@@ -24,54 +25,73 @@ def extract_idccs_with_playwright():
             return []
 
         previous_height = 0
-        max_scrolls = 30
-        scroll_count = 0
-        while scroll_count < max_scrolls:
+        for _ in range(30):
             current_height = page.evaluate("document.body.scrollHeight")
             if current_height == previous_height:
                 break
             page.evaluate("window.scrollTo(0, document.body.scrollHeight)")
             page.wait_for_timeout(800)
             previous_height = current_height
-            scroll_count += 1
 
         links = page.query_selector_all("a[href^='/convention/']")
         for link in links:
             href = link.get_attribute("href")
-            if href:
+            title_el = link.query_selector("h3")
+            title = title_el.inner_text().strip() if title_el else ""
+            if href and href.startswith("/convention/"):
                 idcc = href.split("/convention/")[1].split("/")[0]
                 if idcc.isdigit():
-                    idccs.add(idcc)
+                    conventions.append({
+                        "idcc": idcc,
+                        "title": title
+                    })
 
         browser.close()
 
-    idccs_sorted = sorted(idccs)
-    print(f"✅ {len(idccs_sorted)} IDCCs trouvés : {idccs_sorted[:10]}...")
-    return idccs_sorted
+    print(f"✅ {len(conventions)} conventions extraites.")
+    return conventions
 
 
-def generate_sitemap(idccs):
+def generate_sitemap(conventions):
     print("📄 Génération du sitemap.xml...")
-    urlset = ET.Element("urlset", xmlns="http://www.sitemaps.org/schemas/sitemap/0.9")
+    os.makedirs("public", exist_ok=True)
     today = datetime.utcnow().strftime("%Y-%m-%d")
 
+    urlset = ET.Element("urlset", xmlns="http://www.sitemaps.org/schemas/sitemap/0.9")
+
+    # Page d’accueil
     url = ET.SubElement(urlset, "url")
-    ET.SubElement(url, "loc").text = SOURCE_URL + "/"
+    ET.SubElement(url, "loc").text = f"{SOURCE_URL}/"
     ET.SubElement(url, "lastmod").text = today
     ET.SubElement(url, "changefreq").text = "weekly"
     ET.SubElement(url, "priority").text = "1.0"
+    ET.SubElement(url, "data:title").text = "Accueil"
 
-    for idcc in idccs:
+    # Conventions
+    for conv in conventions:
         url = ET.SubElement(urlset, "url")
-        ET.SubElement(url, "loc").text = f"{SOURCE_URL}/convention/{idcc}"
+        ET.SubElement(url, "loc").text = f"{SOURCE_URL}/convention/{conv['idcc']}"
         ET.SubElement(url, "lastmod").text = today
         ET.SubElement(url, "changefreq").text = "weekly"
         ET.SubElement(url, "priority").text = "0.8"
+        ET.SubElement(url, "data:title").text = conv['title']
 
     tree = ET.ElementTree(urlset)
     tree.write(LOCAL_SITEMAP, encoding="utf-8", xml_declaration=True)
-    print(f"📦 sitemap.xml généré avec {len(idccs)} entrées.")
+    print(f"📦 sitemap.xml généré avec {len(conventions)} conventions.")
+
+
+def commit_sitemap_to_git():
+    print("📁 Commit Git...")
+    subprocess.run(["git", "config", "--global", "user.name", "github-actions[bot]"])
+    subprocess.run(["git", "config", "--global", "user.email", "github-actions[bot]@users.noreply.github.com"])
+    subprocess.run(["git", "add", "public/sitemap.xml"])
+    subprocess.run(["git", "commit", "-m", "🔄 MAJ sitemap avec data:title pour CustomGPT"])
+    subprocess.run(["git", "push"])
+    print("✅ sitemap.xml committé.")
+
 
 if __name__ == "__main__":
-    idccs = extract_idccs_with_playwright()
-    generate_sitemap(idccs)
+    conventions = extract_idccs_and_titles()
+    generate_sitemap(conventions)
+    commit_sitemap_to_git()
