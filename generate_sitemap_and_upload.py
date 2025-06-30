@@ -5,8 +5,9 @@ import xml.etree.ElementTree as ET
 import os
 import subprocess
 
+# 🔧 Configuration
 SOURCE_URL = "https://ccn-openpaye-smartdatapay.replit.app"
-LOCAL_SITEMAP = "sitemap.xml"
+LOCAL_SITEMAP = "public/sitemap.xml"  # 📍 On écrit dans le dossier public
 
 def extract_idccs_with_playwright():
     print(f"🌀 Rendu JS avec Playwright pour {SOURCE_URL}")
@@ -53,6 +54,7 @@ def extract_idccs_with_playwright():
 
 def generate_sitemap(idccs):
     print("📄 Génération du sitemap.xml...")
+    os.makedirs("public", exist_ok=True)  # 🔐 Crée le dossier public si besoin
     urlset = ET.Element("urlset", xmlns="http://www.sitemaps.org/schemas/sitemap/0.9")
     today = datetime.utcnow().strftime("%Y-%m-%d")
 
@@ -78,7 +80,7 @@ def commit_sitemap_to_git():
     print("📁 Ajout du sitemap au dépôt Git...")
     subprocess.run(["git", "config", "--global", "user.name", "github-actions[bot]"])
     subprocess.run(["git", "config", "--global", "user.email", "github-actions[bot]@users.noreply.github.com"])
-    subprocess.run(["git", "add", LOCAL_SITEMAP])
+    subprocess.run(["git", "add", "public/sitemap.xml"])
     subprocess.run(["git", "commit", "-m", "🔄 MAJ automatique du sitemap.xml"])
     subprocess.run(["git", "push"])
     print("✅ sitemap.xml committé et poussé dans le dépôt GitHub.")
